@@ -1,0 +1,133 @@
+SQL ASSIGNMENT
+
+-- TASK 1: ORDER AND SALES ANALYSIS
+
+-- 1a. Order Status Distribution
+SELECT 
+    order_status,
+    COUNT(*) AS total_orders
+FROM Copyofcustomer_orders
+GROUP BY order_status
+ORDER BY total_orders DESC;
+
+
+-- 1b. Monthly Revenue Trend (only for delivered orders)
+SELECT 
+    STRFTIME('%Y-%m', order_date) AS order_month,
+    SUM(order_amount) AS total_revenue
+FROM Copyofcustomer_orders
+WHERE order_status = 'delivered'
+GROUP BY order_month
+ORDER BY order_month;
+
+
+-- TASK 2: CUSTOMER ANALYSIS
+
+-- 2a. Repeat Customers (customers with more than 1 order)
+SELECT 
+    customer_id,
+    COUNT(*) AS total_orders
+FROM Copyofcustomer_orders
+GROUP BY customer_id
+HAVING COUNT(*) > 1
+ORDER BY total_orders DESC;
+
+
+-- 2b. Monthly New Customers
+SELECT 
+      STRFTIME('%Y-%m', order_date) AS order_month,
+    COUNT(DISTINCT customer_id) AS new_customers
+FROM Copyofcustomer_orders
+GROUP BY order_month
+ORDER BY order_month;
+
+
+-- 2c. Total Orders Per Customer
+SELECT 
+    customer_id,
+    COUNT(order_id) AS order_count,
+    SUM(order_amount) AS total_spent
+FROM Copyofcustomer_orders
+GROUP BY customer_id
+ORDER BY total_spent DESC;
+
+
+
+
+
+-- TASK 3: PAYMENT STATUS ANALYSIS
+
+-- 3a. Payment Success vs Failure Count
+SELECT 
+    payment_status,
+    COUNT(*) AS total_payments
+FROM Copyofpayments
+GROUP BY payment_status
+ORDER BY total_payments DESC;
+
+-- 3b. Payment Status by Method
+SELECT 
+    payment_method,
+    payment_status,
+    COUNT(*) AS total
+FROM payments
+GROUP BY payment_method, payment_status
+ORDER BY payment_method;
+
+-- 3c. Monthly Payment Issues (Failed payments only)
+SELECT 
+    STRFTIME('%Y-%m', payment_date) AS payment_month,
+    COUNT(*) AS failed_payments
+FROM Copyofpayments
+WHERE payment_status = 'failed'
+GROUP BY payment_month
+ORDER BY payment_month;
+
+
+-- TASK 4: ORDER DETAILS REPORT
+
+-- 4a. Full Order Report with Payment Info
+
+SELECT 
+    o.order_id,
+    o.customer_id,
+    o.order_date,
+    o.order_status,
+    o.order_amount,
+    p.payment_id,
+    p.payment_date,
+    p.payment_status,
+    p.payment_method
+FROM Copyofcustomer_orders o
+LEFT JOIN Copyofpayments p ON o.order_id = p.order_id
+ORDER BY o.order_date;
+
+
+-- TASK 5: CUSTOMER RETENTION COHORT DATA PREP
+
+-- 5a. Extract month of first purchase for each customer
+WITH first_orders AS (
+    SELECT 
+        customer_id,
+        MIN(STRFTIME('%Y-%m', order_date)) AS cohort_month
+        --MIN(DATE_TRUNC('month', order_date)) AS cohort_month
+    FROM Copyofcustomer_orders
+    GROUP BY customer_id
+),
+orders_with_cohort AS (
+    SELECT 
+        o.customer_id,
+        STRFTIME('%Y-%m', order_date) AS order_month,
+        f.cohort_month
+    FROM Copyofcustomer_orders o
+    JOIN first_orders f ON o.customer_id = f.customer_id
+)
+SELECT 
+    cohort_month,
+    order_month,
+    COUNT(DISTINCT customer_id) AS retained_customers
+FROM orders_with_cohort
+GROUP BY cohort_month, order_month
+ORDER BY cohort_month, order_month;
+
+
